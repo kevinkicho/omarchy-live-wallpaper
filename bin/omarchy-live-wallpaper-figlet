@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+"""Render text with a bundled FIGlet .flf font. No figlet package required."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+FONT_DIR = Path(__file__).resolve().parent.parent / "fonts"
+REQUIRED = [chr(c) for c in range(32, 127)]
+
+
+class Font:
+    def __init__(self, name: str, height: int, hardblank: str, glyphs: dict[str, list[str]]):
+        self.name = name
+        self.height = height
+        self.hardblank = hardblank
+        self.glyphs = glyphs
+
+
+def font_paths() -> list[Path]:
+    return sorted(p for p in FONT_DIR.glob("*.flf") if p.is_file() and not p.is_symlink())
+
+
+def available_fonts() -> list[str]:
+    return [p.stem for p in font_paths()]
+
+
+def resolve_font(name: str) -> Path:
+    raw = name.strip()
+    if raw.endswith(".flf"):
+        raw = raw[:-4]
+    direct = FONT_DIR / f"{raw}.flf"
+    if direct.is_file() and not direct.is_symlink():
+        return direct
+    lowered = raw.lower()
+    for path in font_paths():
+        if path.stem.lower() == lowered:
+            return path
+    raise FileNotFoundError(f"unknown font: {name}")
+
+
+def strip_endmark(line: str) -> str:
+    if not line:
+        return ""
+    end = line[-1]
+    while line.endswith(end):
+        line = line[:-1]
+    return line
+
+
+def load_font(name: str) -> Font:
+    path = resolve_font(name)
+    text = path.read_bytes().decode("latin-1")
+    lines = text.splitlines()
+    if not lines or not lines[0].startswith("flf2"):
+        raise ValueError(f"not a FIGlet font: {path.name}")
+    header = lines[0]
+    if len(header) < 6:
+        raise ValueError(f"invalid FIGlet header: {path.name}")
+    hardblank = header[5]
+    fields = header[6:].split()
+    if len(fields) < 5:
+        raise ValueError(f"invalid FIGlet header: {path.name}")
+    height = int(fields[0])
+    comment_lines = int(fields[4])
+    if height < 1:
+        raise ValueError(f"invalid FIGlet height: {path.name}")
+    body = lines[1 + comment_lines :]
+    glyphs: dict[str, list[str]] = {}
+    idx = 0
+    for ch in REQUIRED:
+        rows: list[str] = []
+        for _ in range(height):
+            if idx < len(body):
+                rows.append(strip_endmark(body[idx]))
+                idx += 1
+            else:
+                rows.append("")
+        glyphs[ch] = rows
+    return Font(path.stem, height, hardblank, glyphs)
+
+
+def _blank(ch: str, hardblank: str) -> bool:
+    return ch == " "  # hardblanks print as space later, but they do not kern
+
+
+def concat(left: list[str], right: list[str], hardblank: str) -> list[str]:
+    if not left:
+        return list(right)
+    height = len(left)
+    width = max((len(row) for row in left), default=0)
+    left = [row.ljust(width) for row in left]
+    right = [(right[i] if i < len(right) else "") for i in range(height)]
+
+    overlap = 0
+    for candidate in range(1, width + 1):
+        ok = True
+        for i in range(height):
+            lc = left[i][width - candidate]
+            rc = right[i][candidate - 1] if candidate - 1 < len(right[i]) else " "
+            if not _blank(lc, hardblank) and not _blank(rc, hardblank):
+                ok = False
+                break
+        if ok:
+            overlap = candidate
+        else:
+            break
+
+    out: list[str] = []
+    for i in range(height):
+        lrow, rrow = left[i], right[i]
+        if overlap == 0:
+            out.append(lrow + rrow)
+            continue
+        mid = []
+        for j in range(overlap):
+            lc = lrow[width - overlap + j]
+            rc = rrow[j] if j < len(rrow) else " "
+            mid.append(lc if not _blank(lc, hardblank) else rc)
+        out.append(lrow[: width - overlap] + "".join(mid) + rrow[overlap:])
+    return out
+
+
+def render(font: Font, text: str) -> str:
+    rows = [""] * font.height
+    for ch in text:
+        if ch == "\t":
+            ch = " "
+        if ch in "\n\r":
+            continue
+        glyph = font.glyphs.get(ch)
+        if glyph is None:
+            glyph = font.glyphs.get(" ")
+        if glyph is None:
+            continue
+        rows = concat(rows, glyph, font.hardblank)
+    blank = font.hardblank
+    lines = [row.replace(blank, " ").rstrip() for row in rows]
+    while lines and not lines[-1]:
+        lines.pop()
+    while lines and not lines[0]:
+        lines.pop(0)
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="omarchy-live-wallpaper-figlet",
+        description="Render text as ASCII using bundled FIGlet fonts.",
+    )
+    parser.add_argument("--font", "-f", default="standard", help="font name (default: standard)")
+    parser.add_argument("--list", action="store_true", help="list bundled fonts")
+    parser.add_argument("text", nargs="*", help="text to render")
+    args = parser.parse_args(argv)
+
+    if args.list:
+        for name in available_fonts():
+            print(name)
+        return 0
+
+    text = " ".join(args.text)
+    if not text:
+        print("usage: omarchy-live-wallpaper-figlet [--font NAME] -- TEXT", file=sys.stderr)
+        return 2
+
+    try:
+        font = load_font(args.font)
+        print(render(font, text))
+    except FileNotFoundError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    except Exception as exc:  # noqa: BLE001 — CLI surface
+        print(f"figlet: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

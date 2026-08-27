@@ -94,5 +94,8 @@
   "style.live-wallpaper.use.vhstape": {"icon":"󰮊","label":"VHS Tape","action":"\"$HOME/.config/omarchy/plugins/live-ttfx-wallpaper/bin/omarchy-live-wallpaper-ctl\" playlist-only vhstape"},
   "style.live-wallpaper.use.waves": {"icon":"󰮊","label":"Waves","action":"\"$HOME/.config/omarchy/plugins/live-ttfx-wallpaper/bin/omarchy-live-wallpaper-ctl\" playlist-only waves"},
   "style.live-wallpaper.use.wipe": {"icon":"󰮊","label":"Wipe","action":"\"$HOME/.config/omarchy/plugins/live-ttfx-wallpaper/bin/omarchy-live-wallpaper-ctl\" playlist-only wipe"},
-  "style.live-wallpaper.text": {"icon":"","label":"Edit Text","action":"omarchy-launch-editor \"$HOME/.config/omarchy/branding/screensaver.txt\""}
+  "style.live-wallpaper.text": {"icon":"","label":"Text"},
+  "style.live-wallpaper.text.set": {"icon":"","label":"Set text","action":"omarchy-launch-tui --app-id=org.omarchy.live-wallpaper-text \"$HOME/.config/omarchy/plugins/live-ttfx-wallpaper/bin/omarchy-live-wallpaper-text\""},
+  "style.live-wallpaper.text.raw": {"icon":"","label":"Edit raw file","action":"omarchy-launch-editor \"$HOME/.config/omarchy/branding/screensaver.txt\""},
+  "style.live-wallpaper.text.reset": {"icon":"","label":"Restore default logo","action":"\"$HOME/.config/omarchy/plugins/live-ttfx-wallpaper/bin/omarchy-live-wallpaper-text\" --reset"}
 }

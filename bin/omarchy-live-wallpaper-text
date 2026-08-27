@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# Type a word, pick a face, put it on the live wallpaper.
+
+set -euo pipefail
+
+PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+FIGLET="$PLUGIN/bin/omarchy-live-wallpaper-figlet"
+CTL="$PLUGIN/bin/omarchy-live-wallpaper-ctl"
+DEST="${HOME}/.config/omarchy/branding/screensaver.txt"
+LOGO="/usr/share/omarchy/logo.txt"
+
+backup_once() {
+  mkdir -p "$(dirname "$DEST")"
+  if [[ -f $DEST ]]; then
+    cp -f "$DEST" "${DEST}.bak"
+  fi
+}
+
+apply_art() {
+  local art=$1
+  backup_once
+  local tmp
+  tmp=$(mktemp "${DEST}.XXXXXX")
+  printf '%s\n' "$art" >"$tmp"
+  mv -f "$tmp" "$DEST"
+  "$CTL" apply
+}
+
+reset_logo() {
+  if [[ ! -f $LOGO ]]; then
+    echo "missing default logo: $LOGO" >&2
+    exit 1
+  fi
+  backup_once
+  cp -f "$LOGO" "$DEST"
+  "$CTL" apply
+}
+
+if [[ ${1:-} == --reset ]]; then
+  reset_logo
+  exit 0
+fi
+
+if ! command -v gum >/dev/null 2>&1; then
+  echo "gum is required" >&2
+  exit 1
+fi
+
+echo
+echo -e "\e[32mLet's put a word on the live wallpaper.\e[0m"
+echo
+
+text=$(gum input --placeholder "OMARCHY" --value "OMARCHY" --prompt "› ") || exit 0
+text="${text#"${text%%[![:space:]]*}"}"
+text="${text%"${text##*[![:space:]]}"}"
+[[ -z $text ]] && exit 0
+
+mapfile -t fonts < <("$FIGLET" --list)
+if [[ ${#fonts[@]} -eq 0 ]]; then
+  echo "no bundled fonts in $PLUGIN/fonts" >&2
+  exit 1
+fi
+
+while true; do
+  font=$(gum choose --header "Pick a face" --height 12 "${fonts[@]}") || exit 0
+  [[ -z $font ]] && exit 0
+
+  if ! art=$("$FIGLET" --font "$font" -- "$text"); then
+    echo "could not render that face" >&2
+    continue
+  fi
+  if [[ -z $art ]]; then
+    echo "that face came back empty" >&2
+    continue
+  fi
+
+  echo
+  printf '%s\n' "$art"
+  echo
+
+  choice=$(gum choose --header "Use this on the live wallpaper?" --height 5 \
+    "Apply" "Another font" "Cancel") || exit 0
+
+  case "$choice" in
+    Apply)
+      apply_art "$art"
+      echo
+      echo -e "\e[32mOn the wallpaper.\e[0m"
+      exit 0
+      ;;
+    "Another font")
+      continue
+      ;;
+    *)
+      exit 0
+      ;;
+  esac
+done

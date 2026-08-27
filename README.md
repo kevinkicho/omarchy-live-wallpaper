@@ -33,7 +33,9 @@ Open **Super+Space → Style → Live wallpaper**.
 | Effects → Edit playlist | Opens `~/.config/omarchy/live-wallpaper.json`. File order is the sequential order. |
 | Effects → (each effect) | Toggle that effect. Empty playlist checks every row. |
 | Only this → (each effect) | Playlist becomes just that effect, mode sequential. |
-| Edit Text | Opens `~/.config/omarchy/branding/screensaver.txt` with `omarchy-launch-editor`. |
+| Text → Set text | Type a word, pick a bundled FIGlet face, preview the ASCII, then write `screensaver.txt` and relaunch. |
+| Text → Edit raw file | Opens `~/.config/omarchy/branding/screensaver.txt` with `omarchy-launch-editor`. |
+| Text → Restore default logo | Copies `/usr/share/omarchy/logo.txt` back to `screensaver.txt` and relaunches. |
 
 Menu rows live in the user extensions file (plugins cannot inject menu rows):
 
@@ -42,6 +44,14 @@ Menu rows live in the user extensions file (plugins cannot inject menu rows):
 A copy of those rows is in [`menu-snippet.jsonc`](menu-snippet.jsonc). After editing, run `omarchy menu refresh`.
 
 Omarchy menu `provider`s (`fonts`, `apps`, `power-profiles`) are first-party-only inside `Menu.qml`, so the 36 effects are static rows rather than a custom provider.
+
+## Set text
+
+**Super+Space → Style → Live wallpaper → Text → Set text** opens a small gum TUI (`omarchy-launch-tui`). Type a word (placeholder `OMARCHY`), choose a face, preview the ASCII, then apply. Apply writes `~/.config/omarchy/branding/screensaver.txt` (previous file saved once as `screensaver.txt.bak`) and relaunches through `omarchy-live-wallpaper-ctl apply`.
+
+Faces ship in `fonts/` as real `.flf` files (standard, slant, big, small, shadow, doom, banner, lean, digital, smslant, mini, bubble). No `figlet` package is required.
+
+**Edit raw file** still opens the text in `omarchy-launch-editor`. **Restore default logo** copies `/usr/share/omarchy/logo.txt` back onto the wallpaper.
 
 ## Config
 
@@ -98,6 +108,8 @@ Menu actions call the plugin copies under `bin/`, so a future `omarchy plugin ad
 ## Scripts
 
 - `bin/omarchy-live-wallpaper-ctl` — get/set speed, mode, loop, and playlist; `apply` relaunches
+- `bin/omarchy-live-wallpaper-text` — gum TUI: type text, pick a font, preview, write `screensaver.txt`, then `apply`
+- `bin/omarchy-live-wallpaper-figlet` — bundled FIGlet renderer (`--font slant -- OMARCHY`); `--list` names the faces in `fonts/`
 - `bin/omarchy-wallpaper-screensaver` — ttfx loop (30fps default, no cursor hide, only kills child ttfx)
 - `bin/omarchy-launch-wallpaper-screensaver` — one kitty background panel per monitor; `--stop` kills those panels by pid
 
