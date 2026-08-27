@@ -1,6 +1,8 @@
-# Live wallpaper
+# Omarchy live wallpaper
 
-![Live ttfx wallpaper on Omarchy](screenshots/live-wallpaper.png)
+![Omarchy live wallpaper while using the desktop](screenshots/omarchy-live-wallpaper-demo.gif)
+
+![Omarchy live wallpaper](screenshots/live-wallpaper.png)
 
 Third-party Omarchy 4 plugin that keeps an always-on [ttfx](https://github.com/ChrisBuilds/terminaltexteffects) animation on the Hyprland background layer via `kitty +kitten panel`.
 
