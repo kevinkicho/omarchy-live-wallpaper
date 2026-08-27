@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "live-ttfx-wallpaper",
   "name": "Live wallpaper",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Kevinkicho",
   "license": "MIT",
   "description": "Always-on ttfx live wallpaper on the Hyprland background layer.",

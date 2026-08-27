@@ -20,10 +20,25 @@ wait_for_terminal_resize() {
   done
 }
 
-read_fps() {
+ALL_EFFECTS=(beams binarypath blackhole bouncyballs bubbles burn colorshift crumble decrypt errorcorrect expand fireworks highlight laseretch matrix middleout orbittingvolley overflow pour print rain randomsequence rings scattered slice slide smoke spotlights spray swarm sweep synthgrid thunderstorm unstable vhstape waves wipe)
+
+JSON="${HOME}/.config/omarchy/live-wallpaper.json"
+FPS_FILE="${HOME}/.config/omarchy/live-wallpaper-fps"
+EFFECTS_FILE="${HOME}/.config/omarchy/live-wallpaper-effects"
+
+is_known_effect() {
+  local name="$1"
+  local e
+  for e in "${ALL_EFFECTS[@]}"; do
+    [[ $e == "$name" ]] && return 0
+  done
+  return 1
+}
+
+read_fps_file() {
   local raw=30
-  if [[ -f "${HOME}/.config/omarchy/live-wallpaper-fps" ]]; then
-    raw=$(tr -d '[:space:]' < "${HOME}/.config/omarchy/live-wallpaper-fps")
+  if [[ -f $FPS_FILE ]]; then
+    raw=$(tr -d '[:space:]' < "$FPS_FILE")
   fi
   if [[ $raw =~ ^[0-9]+$ ]] && ((raw >= 1 && raw <= 120)); then
     printf '%s\n' "$raw"
@@ -32,38 +47,163 @@ read_fps() {
   fi
 }
 
-# Prints one argv per line: --random-effect, optionally followed by
-# --include-effects and effect names from the config file.
-read_effect_args() {
+# Space-separated known names from the old effects file, or empty for all.
+read_effects_file() {
   local raw=""
-  if [[ -f "${HOME}/.config/omarchy/live-wallpaper-effects" ]]; then
-    raw=$(tr -d '\r' < "${HOME}/.config/omarchy/live-wallpaper-effects")
+  if [[ -f $EFFECTS_FILE ]]; then
+    raw=$(tr -d '\r' < "$EFFECTS_FILE")
     raw="${raw#"${raw%%[![:space:]]*}"}"
     raw="${raw%"${raw##*[![:space:]]}"}"
   fi
   if [[ -z $raw || $raw == random ]]; then
-    printf '%s\n' --random-effect
     return
   fi
   local cleaned=${raw//,/ }
   local -a names=()
   read -r -a names <<< "$cleaned"
-  if ((${#names[@]} == 0)); then
-    printf '%s\n' --random-effect
+  local n
+  for n in "${names[@]}"; do
+    if is_known_effect "$n"; then
+      printf '%s ' "$n"
+    fi
+  done
+}
+
+read_json_config() {
+  python3 - "$JSON" <<'PY'
+import json, sys
+path = sys.argv[1]
+try:
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+except Exception:
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+speed = data.get("speed", 30)
+try:
+    speed = int(speed)
+except (TypeError, ValueError):
+    speed = 30
+if not (1 <= speed <= 120):
+    speed = 30
+mode = data.get("mode", "random")
+if mode not in ("random", "sequential"):
+    mode = "random"
+loop = data.get("loop", True)
+if isinstance(loop, bool):
+    pass
+elif str(loop).lower() in ("true", "on", "1", "yes"):
+    loop = True
+elif str(loop).lower() in ("false", "off", "0", "no"):
+    loop = False
+else:
+    loop = True
+pl = data.get("playlist") or []
+if isinstance(pl, str):
+    pl = pl.replace(",", " ").split()
+if not isinstance(pl, list):
+    pl = []
+print(speed)
+print(mode)
+print("true" if loop else "false")
+print(" ".join(str(x) for x in pl if isinstance(x, str)))
+PY
+}
+
+load_config() {
+  SPEED=30
+  MODE=random
+  LOOP=true
+  local raw_playlist=""
+  if [[ -f $JSON ]]; then
+    local line
+    local i=0
+    while IFS= read -r line; do
+      case $i in
+        0) SPEED=$line ;;
+        1) MODE=$line ;;
+        2) LOOP=$line ;;
+        3) raw_playlist=$line ;;
+      esac
+      i=$((i + 1))
+    done < <(read_json_config)
+  else
+    SPEED=$(read_fps_file)
+    MODE=random
+    LOOP=true
+    raw_playlist=$(read_effects_file)
+  fi
+
+  EFFECT_LIST=()
+  local name
+  for name in $raw_playlist; do
+    if is_known_effect "$name"; then
+      EFFECT_LIST+=("$name")
+    fi
+  done
+  if ((${#EFFECT_LIST[@]} == 0)); then
+    EFFECT_LIST=("${ALL_EFFECTS[@]}")
+  fi
+}
+
+pick_random() {
+  local last="$1"
+  local n=${#EFFECT_LIST[@]}
+  local i choice
+  if ((n <= 1)); then
+    printf '%s\n' "${EFFECT_LIST[0]}"
     return
   fi
-  printf '%s\n' --random-effect --include-effects
-  printf '%s\n' "${names[@]}"
+  local _try
+  for _try in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    i=$((RANDOM % n))
+    choice="${EFFECT_LIST[i]}"
+    if [[ $choice != "$last" ]]; then
+      printf '%s\n' "$choice"
+      return
+    fi
+  done
+  printf '%s\n' "$choice"
+}
+
+run_effect() {
+  local effect="$1"
+  # Global flags must precede the effect subcommand (`ttfx matrix -i` is rejected).
+  ttfx -i "${HOME}/.config/omarchy/branding/screensaver.txt" \
+    --frame-rate "$SPEED" --canvas-width 0 --canvas-height 0 --reuse-canvas --anchor-canvas c --anchor-text c \
+    --no-eol --no-restore-cursor \
+    "$effect" &
+  wait $! || true
 }
 
 wait_for_terminal_resize
+load_config
 
-FPS=$(read_fps)
-mapfile -t EFFECT_ARGS < <(read_effect_args)
-
-while true; do
-  ttfx -i "${HOME}/.config/omarchy/branding/screensaver.txt" \
-    --frame-rate "$FPS" --canvas-width 0 --canvas-height 0 --reuse-canvas --anchor-canvas c --anchor-text c \
-    "${EFFECT_ARGS[@]}" --no-eol --no-restore-cursor &
-  wait $! || true
-done
+if [[ $MODE == sequential ]]; then
+  if [[ $LOOP == true ]]; then
+    i=0
+    while true; do
+      run_effect "${EFFECT_LIST[i]}"
+      i=$(( (i + 1) % ${#EFFECT_LIST[@]} ))
+    done
+  else
+    for effect in "${EFFECT_LIST[@]}"; do
+      run_effect "$effect"
+    done
+    sleep infinity
+  fi
+else
+  last=""
+  if [[ $LOOP == true ]]; then
+    while true; do
+      effect=$(pick_random "$last")
+      last=$effect
+      run_effect "$effect"
+    done
+  else
+    effect=$(pick_random "")
+    run_effect "$effect"
+    sleep infinity
+  fi
+fi

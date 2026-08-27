@@ -1,0 +1,345 @@
+#!/bin/bash
+
+# Live wallpaper config helper. JSON is the source of truth; mutating
+# commands rewrite it and relaunch the plugin wallpaper panels.
+
+set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+LAUNCHER="${SCRIPT_DIR}/omarchy-launch-wallpaper-screensaver"
+CONFIG="${HOME}/.config/omarchy/live-wallpaper.json"
+FPS_FILE="${HOME}/.config/omarchy/live-wallpaper-fps"
+EFFECTS_FILE="${HOME}/.config/omarchy/live-wallpaper-effects"
+
+export LW_CONFIG="$CONFIG"
+export LW_FPS_FILE="$FPS_FILE"
+export LW_EFFECTS_FILE="$EFFECTS_FILE"
+export LW_EFFECTS_ALL="beams binarypath blackhole bouncyballs bubbles burn colorshift crumble decrypt errorcorrect expand fireworks highlight laseretch matrix middleout orbittingvolley overflow pour print rain randomsequence rings scattered slice slide smoke spotlights spray swarm sweep synthgrid thunderstorm unstable vhstape waves wipe"
+
+usage() {
+  cat <<'EOF'
+Usage: omarchy-live-wallpaper-ctl <command> [args]
+
+  get KEY                         speed | mode | loop | playlist
+  set-speed N                     10 | 15 | 30 | 60 | 90
+  set-mode random|sequential
+  set-loop on|off
+  playlist-toggle EFFECT          add or remove; empty playlist means all
+  playlist-only EFFECT            just this effect, mode=sequential
+  playlist-all                    empty playlist (all effects)
+  playlist-move EFFECT up|down    reorder explicit playlist
+  edit                            open JSON in omarchy-launch-editor
+  apply                           relaunch wallpaper panels
+  in-playlist EFFECT              exit 0 if all (empty) or listed
+  is-mode X | is-loop X | is-speed N
+EOF
+}
+
+json_cmd() {
+  python3 - "$@" <<'PY'
+import json
+import os
+import sys
+import tempfile
+
+CONFIG = os.environ["LW_CONFIG"]
+FPS_FILE = os.environ.get("LW_FPS_FILE", "")
+EFFECTS_FILE = os.environ.get("LW_EFFECTS_FILE", "")
+ALL = os.environ["LW_EFFECTS_ALL"].split()
+ALL_SET = set(ALL)
+ALLOWED_SPEEDS = {10, 15, 30, 60, 90}
+
+
+def default_cfg():
+    return {"speed": 30, "mode": "random", "loop": True, "playlist": []}
+
+
+def migrate_old():
+    cfg = default_cfg()
+    if FPS_FILE and os.path.isfile(FPS_FILE):
+        raw = open(FPS_FILE, encoding="utf-8").read().strip()
+        if raw.isdigit() and 1 <= int(raw) <= 120:
+            cfg["speed"] = int(raw)
+    if EFFECTS_FILE and os.path.isfile(EFFECTS_FILE):
+        raw = open(EFFECTS_FILE, encoding="utf-8").read().replace("\r", "").replace(",", " ").strip()
+        if raw and raw != "random":
+            cfg["playlist"] = [n for n in raw.split() if n in ALL_SET]
+    return cfg
+
+
+def normalize(data):
+    cfg = default_cfg()
+    if not isinstance(data, dict):
+        return cfg
+    speed = data.get("speed", 30)
+    try:
+        speed = int(speed)
+    except (TypeError, ValueError):
+        speed = 30
+    if 1 <= speed <= 120:
+        cfg["speed"] = speed
+    if data.get("mode") in ("random", "sequential"):
+        cfg["mode"] = data["mode"]
+    loop = data.get("loop", True)
+    if isinstance(loop, bool):
+        cfg["loop"] = loop
+    elif str(loop).lower() in ("on", "true", "1", "yes"):
+        cfg["loop"] = True
+    elif str(loop).lower() in ("off", "false", "0", "no"):
+        cfg["loop"] = False
+    pl = data.get("playlist", [])
+    if isinstance(pl, str):
+        pl = pl.replace(",", " ").split()
+    if isinstance(pl, list):
+        cfg["playlist"] = [x for x in pl if isinstance(x, str) and x in ALL_SET]
+    return cfg
+
+
+def load():
+    if not os.path.isfile(CONFIG):
+        cfg = migrate_old()
+        save(cfg)
+        return cfg
+    try:
+        with open(CONFIG, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+    return normalize(data)
+
+
+def save(cfg):
+    os.makedirs(os.path.dirname(CONFIG), exist_ok=True)
+    directory = os.path.dirname(CONFIG)
+    fd, tmp = tempfile.mkstemp(prefix="live-wallpaper.", suffix=".json", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2)
+            f.write("\n")
+        os.replace(tmp, CONFIG)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def require_effect(name):
+    if name not in ALL_SET:
+        print(f"unknown effect: {name}", file=sys.stderr)
+        sys.exit(2)
+
+
+cmd = sys.argv[1]
+args = sys.argv[2:]
+cfg = load()
+
+if cmd == "get":
+    if not args:
+        sys.exit(2)
+    key = args[0]
+    if key == "speed":
+        print(cfg["speed"])
+    elif key == "mode":
+        print(cfg["mode"])
+    elif key == "loop":
+        print("true" if cfg["loop"] else "false")
+    elif key == "playlist":
+        print(" ".join(cfg["playlist"]))
+    else:
+        sys.exit(2)
+elif cmd == "set-speed":
+    try:
+        n = int(args[0])
+    except (IndexError, ValueError):
+        sys.exit(2)
+    if n not in ALLOWED_SPEEDS:
+        print("speed must be 10, 15, 30, 60, or 90", file=sys.stderr)
+        sys.exit(2)
+    cfg["speed"] = n
+    save(cfg)
+elif cmd == "set-mode":
+    if not args or args[0] not in ("random", "sequential"):
+        sys.exit(2)
+    cfg["mode"] = args[0]
+    save(cfg)
+elif cmd == "set-loop":
+    if not args or args[0] not in ("on", "off"):
+        sys.exit(2)
+    cfg["loop"] = args[0] == "on"
+    save(cfg)
+elif cmd == "playlist-toggle":
+    if not args:
+        sys.exit(2)
+    require_effect(args[0])
+    effect = args[0]
+    playlist = list(cfg["playlist"])
+    if not playlist:
+        playlist = [n for n in ALL if n != effect]
+    elif effect in playlist:
+        playlist = [n for n in playlist if n != effect]
+    else:
+        playlist.append(effect)
+    cfg["playlist"] = playlist
+    save(cfg)
+elif cmd == "playlist-only":
+    if not args:
+        sys.exit(2)
+    require_effect(args[0])
+    cfg["playlist"] = [args[0]]
+    cfg["mode"] = "sequential"
+    save(cfg)
+elif cmd == "playlist-all":
+    cfg["playlist"] = []
+    save(cfg)
+elif cmd == "playlist-move":
+    if len(args) < 2 or args[1] not in ("up", "down"):
+        sys.exit(2)
+    require_effect(args[0])
+    effect, direction = args[0], args[1]
+    playlist = list(cfg["playlist"]) or list(ALL)
+    if effect not in playlist:
+        print(f"effect not in playlist: {effect}", file=sys.stderr)
+        sys.exit(2)
+    idx = playlist.index(effect)
+    if direction == "up" and idx > 0:
+        playlist[idx - 1], playlist[idx] = playlist[idx], playlist[idx - 1]
+    elif direction == "down" and idx < len(playlist) - 1:
+        playlist[idx + 1], playlist[idx] = playlist[idx], playlist[idx + 1]
+    cfg["playlist"] = playlist
+    save(cfg)
+elif cmd == "in-playlist":
+    if not args:
+        sys.exit(2)
+    require_effect(args[0])
+    sys.exit(0 if (not cfg["playlist"] or args[0] in cfg["playlist"]) else 1)
+elif cmd == "is-mode":
+    if not args:
+        sys.exit(2)
+    sys.exit(0 if cfg["mode"] == args[0] else 1)
+elif cmd == "is-loop":
+    if not args or args[0] not in ("on", "off"):
+        sys.exit(2)
+    sys.exit(0 if cfg["loop"] == (args[0] == "on") else 1)
+elif cmd == "is-speed":
+    try:
+        n = int(args[0])
+    except (IndexError, ValueError):
+        sys.exit(2)
+    sys.exit(0 if cfg["speed"] == n else 1)
+else:
+    sys.exit(2)
+PY
+}
+
+apply_wallpaper() {
+  "$LAUNCHER"
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  ""|-h|--help|help)
+    usage
+    exit 0
+    ;;
+  get)
+    if [[ $# -ne 2 || ! $2 =~ ^(speed|mode|loop|playlist)$ ]]; then
+      usage >&2
+      exit 2
+    fi
+    json_cmd get "$2"
+    ;;
+  set-speed)
+    if [[ $# -ne 2 ]]; then
+      usage >&2
+      exit 2
+    fi
+    json_cmd set-speed "$2"
+    apply_wallpaper
+    ;;
+  set-mode)
+    if [[ $# -ne 2 || ! $2 =~ ^(random|sequential)$ ]]; then
+      usage >&2
+      exit 2
+    fi
+    json_cmd set-mode "$2"
+    apply_wallpaper
+    ;;
+  set-loop)
+    if [[ $# -ne 2 || ! $2 =~ ^(on|off)$ ]]; then
+      usage >&2
+      exit 2
+    fi
+    json_cmd set-loop "$2"
+    apply_wallpaper
+    ;;
+  playlist-toggle)
+    if [[ $# -ne 2 ]]; then
+      usage >&2
+      exit 2
+    fi
+    json_cmd playlist-toggle "$2"
+    apply_wallpaper
+    ;;
+  playlist-only)
+    if [[ $# -ne 2 ]]; then
+      usage >&2
+      exit 2
+    fi
+    json_cmd playlist-only "$2"
+    apply_wallpaper
+    ;;
+  playlist-all)
+    json_cmd playlist-all
+    apply_wallpaper
+    ;;
+  playlist-move)
+    if [[ $# -ne 3 || ! $3 =~ ^(up|down)$ ]]; then
+      usage >&2
+      exit 2
+    fi
+    json_cmd playlist-move "$2" "$3"
+    apply_wallpaper
+    ;;
+  edit)
+    json_cmd get speed >/dev/null
+    omarchy-launch-editor "$CONFIG"
+    apply_wallpaper
+    ;;
+  apply)
+    apply_wallpaper
+    ;;
+  in-playlist)
+    if [[ $# -ne 2 ]]; then
+      usage >&2
+      exit 2
+    fi
+    json_cmd in-playlist "$2"
+    ;;
+  is-mode)
+    if [[ $# -ne 2 ]]; then
+      usage >&2
+      exit 2
+    fi
+    json_cmd is-mode "$2"
+    ;;
+  is-loop)
+    if [[ $# -ne 2 ]]; then
+      usage >&2
+      exit 2
+    fi
+    json_cmd is-loop "$2"
+    ;;
+  is-speed)
+    if [[ $# -ne 2 ]]; then
+      usage >&2
+      exit 2
+    fi
+    json_cmd is-speed "$2"
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac

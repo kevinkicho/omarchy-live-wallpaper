@@ -1,6 +1,6 @@
-# Omarchy live wallpaper
+# Live wallpaper
 
-![Omarchy live wallpaper](screenshots/live-wallpaper.png)
+![Live ttfx wallpaper on Omarchy](screenshots/live-wallpaper.png)
 
 Third-party Omarchy 4 plugin that keeps an always-on [ttfx](https://github.com/ChrisBuilds/terminaltexteffects) animation on the Hyprland background layer via `kitty +kitten panel`.
 
@@ -16,20 +16,48 @@ Open **Super+Space → Style → Live wallpaper**.
 | --- | --- |
 | Enable | Disables `omarchy.background` if needed and starts the live wallpaper. Checked while the wallpaper class is running. |
 | Restore static wallpaper | Stops only the live wallpaper panels, then enables `omarchy.background`. |
-| Frame rate | Writes `~/.config/omarchy/live-wallpaper-fps` (`15` / `30` / `60`) and relaunches. Default is 30 if the file is missing. |
-| Effects → Random | Writes `~/.config/omarchy/live-wallpaper-effects` (`random`) and relaunches. |
+| Speed | `--frame-rate`: 10 / 15 / 30 / 60 / 90. Default is 30. |
+| Playback → Randomize | Each cycle picks a random playlist effect (no immediate repeat when more than one). |
+| Playback → In order | Walk the playlist in JSON order. |
+| Playback → Loop on / Loop off | Replay forever, or play once and freeze on the last frame (`sleep infinity` keeps the kitty panel). |
+| Effects → All effects | Empty playlist = every ttfx effect. |
+| Effects → Edit playlist | Opens `~/.config/omarchy/live-wallpaper.json`. File order is the sequential order. |
+| Effects → (each effect) | Toggle that effect. Empty playlist checks every row. |
+| Only this → (each effect) | Playlist becomes just that effect, mode sequential. |
 | Edit Text | Opens `~/.config/omarchy/branding/screensaver.txt` with `omarchy-launch-editor`. |
 
 Menu rows live in the user extensions file (plugins cannot inject menu rows):
 
 `~/.config/omarchy/extensions/omarchy-menu.jsonc`
 
-A copy of those rows is in [`menu-snippet.jsonc`](menu-snippet.jsonc).
+A copy of those rows is in [`menu-snippet.jsonc`](menu-snippet.jsonc). After editing, run `omarchy menu refresh`.
 
-## Config files
+Omarchy menu `provider`s (`fonts`, `apps`, `power-profiles`) are first-party-only inside `Menu.qml`, so the 36 effects are static rows rather than a custom provider.
 
-- `~/.config/omarchy/live-wallpaper-fps` — integer frame rate (default `30`)
-- `~/.config/omarchy/live-wallpaper-effects` — `random` (default) or a comma/space-separated list of ttfx effect names passed to `--include-effects`
+## Config
+
+`~/.config/omarchy/live-wallpaper.json` is the source of truth. It is created on first `omarchy-live-wallpaper-ctl` use if missing:
+
+```json
+{
+  "speed": 30,
+  "mode": "random",
+  "loop": true,
+  "playlist": []
+}
+```
+
+- `speed` — ttfx `--frame-rate`
+- `mode` — `random` or `sequential`
+- `loop` — `true` keeps cycling; `false` plays once (one random pick in random mode) then sleeps so the last frame stays
+- `playlist` — effect names in order. Empty means all effects.
+
+`bin/omarchy-live-wallpaper-ctl` writes this JSON only. Mutating commands relaunch the wallpaper.
+
+Old flat files still work as fallbacks when the JSON is missing:
+
+- `~/.config/omarchy/live-wallpaper-fps` — integer frame rate
+- `~/.config/omarchy/live-wallpaper-effects` — `random` or a comma/space-separated include list
 
 ## Install
 
@@ -40,7 +68,7 @@ omarchy-pkg-add kitty
 omarchy plugin add https://github.com/kevinkicho/omarchy-live-wallpaper.git --enable
 ```
 
-Then merge [`menu-snippet.jsonc`](menu-snippet.jsonc) into `~/.config/omarchy/extensions/omarchy-menu.jsonc` and reopen Super+Space. You should see **Style → Live wallpaper**.
+Then merge [`menu-snippet.jsonc`](menu-snippet.jsonc) into `~/.config/omarchy/extensions/omarchy-menu.jsonc` and run `omarchy menu refresh`. You should see **Style → Live wallpaper**.
 
 ```bash
 omarchy plugin validate ~/.config/omarchy/plugins/live-ttfx-wallpaper
@@ -60,10 +88,11 @@ Menu actions call the plugin copies under `bin/`, so a future `omarchy plugin ad
 
 ## Scripts
 
+- `bin/omarchy-live-wallpaper-ctl` — get/set speed, mode, loop, and playlist; `apply` relaunches
 - `bin/omarchy-wallpaper-screensaver` — ttfx loop (30fps default, no cursor hide, only kills child ttfx)
 - `bin/omarchy-launch-wallpaper-screensaver` — one kitty background panel per monitor; `--stop` kills those panels by pid
 
-Kitty flags stay **after** `+kitten`. Class is always `org.omarchy.wallpaper-screensaver`. Logs: `~/.local/share/omarchy-wp/`.
+Effects are ttfx subcommands (`ttfx -i file --frame-rate N matrix`), not `--effect`. Kitty flags stay **after** `+kitten`. Class is always `org.omarchy.wallpaper-screensaver`. Logs: `~/.local/share/omarchy-wp/`.
 
 ## Remove
 
@@ -76,7 +105,7 @@ omarchy plugin enable omarchy.background
 
 Then delete the `style.live-wallpaper*` rows from `~/.config/omarchy/extensions/omarchy-menu.jsonc` if you added them.
 
-Optional leftovers: `~/.config/omarchy/live-wallpaper-fps`, `~/.config/omarchy/live-wallpaper-effects`, `~/.local/share/omarchy-wp/`, and the login fallback scripts in `~/.local/bin/omarchy-*-wallpaper-screensaver` if you installed those by hand.
+Optional leftovers: `~/.config/omarchy/live-wallpaper.json`, `~/.config/omarchy/live-wallpaper-fps`, `~/.config/omarchy/live-wallpaper-effects`, `~/.local/share/omarchy-wp/`, and the login fallback scripts in `~/.local/bin/omarchy-*-wallpaper-screensaver` if you installed those by hand.
 
 ## Dependencies
 
