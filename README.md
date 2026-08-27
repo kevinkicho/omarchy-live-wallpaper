@@ -6,7 +6,7 @@
     <td width="50%"><img src="screenshots/live-wallpaper.png" alt="Empty desktop live wallpaper"></td>
   </tr>
   <tr>
-    <td width="50%"><img src="screenshots/usage-behind-windows.jpg" alt="Wallpaper visible behind tiled windows"></td>
+    <td width="50%"><img src="screenshots/omarchy-usage-30s.gif" alt="30 seconds of Omarchy live wallpaper behind real desktop use"></td>
     <td width="50%"><img src="screenshots/usage-gold-bars.jpg" alt="Wallpaper behind windows, later in the clip"></td>
   </tr>
 </table>
