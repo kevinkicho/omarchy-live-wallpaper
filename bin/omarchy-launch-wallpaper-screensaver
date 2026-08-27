@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Launch one kitty background-layer panel per monitor running live ttfx wallpaper.
+# Re-running kills existing wallpaper panels first so HDMI plug / monitor changes work.
+
+export PATH="${HOME}/.local/bin:${PATH}"
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+WALLPAPER="${SCRIPT_DIR}/omarchy-wallpaper-screensaver"
+LOGDIR="${HOME}/.local/share/omarchy-wp"
+mkdir -p "$LOGDIR"
+
+stop_wallpaper_panels() {
+  # Kill existing wallpaper panels only (the [o] trick avoids matching this script).
+  mapfile -t old_pids < <(pgrep -f '[o]rg.omarchy.wallpaper-screensaver' || true)
+  if ((${#old_pids[@]})); then
+    kill "${old_pids[@]}" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      pgrep -f '[o]rg.omarchy.wallpaper-screensaver' >/dev/null || break
+      sleep 0.1
+    done
+  fi
+}
+
+if [[ ${1:-} == "--stop" ]]; then
+  stop_wallpaper_panels
+  exit 0
+fi
+
+if ! command -v ttfx >/dev/null; then
+  echo "ttfx is not installed" >&2
+  exit 1
+fi
+
+if ! command -v kitty >/dev/null; then
+  echo "kitty is not installed (need: omarchy-pkg-add kitty)" >&2
+  exit 1
+fi
+
+stop_wallpaper_panels
+
+for m in $(hyprctl monitors -j | jq -r '.[] | .name'); do
+  # Do not put kitty flags before +kitten — that yields "failed to launch kitten".
+  kitty +kitten panel \
+    --class=org.omarchy.wallpaper-screensaver \
+    --edge=background \
+    --output-name "$m" \
+    -o font_size=18 \
+    -o window_padding_width=0 \
+    -o background='#000000' \
+    -o background_opacity=1 \
+    --detach \
+    --detached-log="$LOGDIR/kitty-$m.log" \
+    "$WALLPAPER" &
+done

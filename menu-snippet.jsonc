@@ -1,0 +1,14 @@
+{
+  // Copy these rows into ~/.config/omarchy/extensions/omarchy-menu.jsonc
+  // Super+Space → Style → Live wallpaper
+  "style.live-wallpaper": {"icon":"󱦟","label":"Live wallpaper","aliases":["live-wallpaper","ttfx"]},
+  "style.live-wallpaper.enable": {"icon":"󰐼","label":"Enable","checked":"pgrep -f '[o]rg.omarchy.wallpaper-screensaver'","action":"omarchy plugin disable omarchy.background >/dev/null 2>&1 || true; omarchy plugin enable live-ttfx-wallpaper >/dev/null 2>&1 || true; \"$HOME/.config/omarchy/plugins/live-ttfx-wallpaper/bin/omarchy-launch-wallpaper-screensaver\""},
+  "style.live-wallpaper.restore": {"icon":"","label":"Restore static wallpaper","action":"\"$HOME/.config/omarchy/plugins/live-ttfx-wallpaper/bin/omarchy-launch-wallpaper-screensaver\" --stop; omarchy plugin disable live-ttfx-wallpaper >/dev/null 2>&1 || true; omarchy plugin enable omarchy.background"},
+  "style.live-wallpaper.fps": {"icon":"󰥔","label":"Frame rate"},
+  "style.live-wallpaper.fps.15": {"icon":"󰥔","label":"15","checked":"fps=$(cat ~/.config/omarchy/live-wallpaper-fps 2>/dev/null | tr -d '[:space:]'); [[ ${fps:-30} == 15 ]]","action":"printf '%s\\n' 15 > \"$HOME/.config/omarchy/live-wallpaper-fps\"; \"$HOME/.config/omarchy/plugins/live-ttfx-wallpaper/bin/omarchy-launch-wallpaper-screensaver\""},
+  "style.live-wallpaper.fps.30": {"icon":"󰥔","label":"30","checked":"fps=$(cat ~/.config/omarchy/live-wallpaper-fps 2>/dev/null | tr -d '[:space:]'); [[ ${fps:-30} == 30 ]]","action":"printf '%s\\n' 30 > \"$HOME/.config/omarchy/live-wallpaper-fps\"; \"$HOME/.config/omarchy/plugins/live-ttfx-wallpaper/bin/omarchy-launch-wallpaper-screensaver\""},
+  "style.live-wallpaper.fps.60": {"icon":"󰥔","label":"60","checked":"fps=$(cat ~/.config/omarchy/live-wallpaper-fps 2>/dev/null | tr -d '[:space:]'); [[ ${fps:-30} == 60 ]]","action":"printf '%s\\n' 60 > \"$HOME/.config/omarchy/live-wallpaper-fps\"; \"$HOME/.config/omarchy/plugins/live-ttfx-wallpaper/bin/omarchy-launch-wallpaper-screensaver\""},
+  "style.live-wallpaper.effects": {"icon":"󰐱","label":"Effects"},
+  "style.live-wallpaper.effects.random": {"icon":"󰲒","label":"Random","checked":"eff=$(cat ~/.config/omarchy/live-wallpaper-effects 2>/dev/null | tr -d '[:space:]'); [[ -z $eff || $eff == random ]]","action":"printf '%s\\n' random > \"$HOME/.config/omarchy/live-wallpaper-effects\"; \"$HOME/.config/omarchy/plugins/live-ttfx-wallpaper/bin/omarchy-launch-wallpaper-screensaver\""},
+  "style.live-wallpaper.text": {"icon":"","label":"Edit Text","action":"omarchy-launch-editor \"$HOME/.config/omarchy/branding/screensaver.txt\""}
+}

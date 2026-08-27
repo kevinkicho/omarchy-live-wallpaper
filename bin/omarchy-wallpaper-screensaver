@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# Live ttfx wallpaper. Distinct from omarchy-screensaver:
+# no cursor hiding, no keypress/focus-loss exit, and never a global pkill ttfx.
+
+exit_wallpaper() {
+  # Only children of this script. `pkill ttfx` would kill the idle screensaver too.
+  pkill -P $$ -x ttfx 2>/dev/null
+  exit 0
+}
+
+trap exit_wallpaper SIGINT SIGTERM SIGHUP SIGQUIT
+
+printf '\033]11;rgb:00/00/00\007'  # Set background color to black
+
+wait_for_terminal_resize() {
+  local deadline=$((SECONDS + 2))
+  while ((SECONDS < deadline)) && [[ $(stty size 2>/dev/null) == "24 80" ]]; do
+    sleep 0.02
+  done
+}
+
+read_fps() {
+  local raw=30
+  if [[ -f "${HOME}/.config/omarchy/live-wallpaper-fps" ]]; then
+    raw=$(tr -d '[:space:]' < "${HOME}/.config/omarchy/live-wallpaper-fps")
+  fi
+  if [[ $raw =~ ^[0-9]+$ ]] && ((raw >= 1 && raw <= 120)); then
+    printf '%s\n' "$raw"
+  else
+    printf '%s\n' 30
+  fi
+}
+
+# Prints one argv per line: --random-effect, optionally followed by
+# --include-effects and effect names from the config file.
+read_effect_args() {
+  local raw=""
+  if [[ -f "${HOME}/.config/omarchy/live-wallpaper-effects" ]]; then
+    raw=$(tr -d '\r' < "${HOME}/.config/omarchy/live-wallpaper-effects")
+    raw="${raw#"${raw%%[![:space:]]*}"}"
+    raw="${raw%"${raw##*[![:space:]]}"}"
+  fi
+  if [[ -z $raw || $raw == random ]]; then
+    printf '%s\n' --random-effect
+    return
+  fi
+  local cleaned=${raw//,/ }
+  local -a names=()
+  read -r -a names <<< "$cleaned"
+  if ((${#names[@]} == 0)); then
+    printf '%s\n' --random-effect
+    return
+  fi
+  printf '%s\n' --random-effect --include-effects
+  printf '%s\n' "${names[@]}"
+}
+
+wait_for_terminal_resize
+
+FPS=$(read_fps)
+mapfile -t EFFECT_ARGS < <(read_effect_args)
+
+while true; do
+  ttfx -i "${HOME}/.config/omarchy/branding/screensaver.txt" \
+    --frame-rate "$FPS" --canvas-width 0 --canvas-height 0 --reuse-canvas --anchor-canvas c --anchor-text c \
+    "${EFFECT_ARGS[@]}" --no-eol --no-restore-cursor &
+  wait $! || true
+done
