@@ -1,10 +1,15 @@
 # Omarchy live wallpaper
 
-![Demo of Omarchy live wallpaper effects and Super+Space controls](screenshots/omarchy-live-wallpaper-demo.gif)
-
-The GIF shows every ttfx effect plus the Super+Space Speed, Playback, and Effects menus.
-
-![Live ttfx wallpaper on Omarchy](screenshots/live-wallpaper.png)
+<table>
+  <tr>
+    <td width="50%"><img src="screenshots/omarchy-live-wallpaper-demo.gif" alt="30s live wallpaper while using the desktop"></td>
+    <td width="50%"><img src="screenshots/live-wallpaper.png" alt="Empty desktop live wallpaper"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="screenshots/usage-behind-windows.jpg" alt="Wallpaper visible behind tiled windows"></td>
+    <td width="50%"><img src="screenshots/usage-gold-bars.jpg" alt="Wallpaper behind windows, later in the clip"></td>
+  </tr>
+</table>
 
 Third-party Omarchy 4 plugin that keeps an always-on [ttfx](https://github.com/ChrisBuilds/terminaltexteffects) animation on the Hyprland background layer via `kitty +kitten panel`.
 
