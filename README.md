@@ -1,6 +1,10 @@
 # Live wallpaper
 
+![Live ttfx wallpaper on Omarchy](screenshots/live-wallpaper.png)
+
 Third-party Omarchy 4 plugin that keeps an always-on [ttfx](https://github.com/ChrisBuilds/terminaltexteffects) animation on the Hyprland background layer via `kitty +kitten panel`.
+
+Packaged and published to GitHub by **Grok 4.6 via Grok Bot**.
 
 This is **not** the idle screensaver. The idle screensaver uses class `org.omarchy.screensaver`. This plugin uses class `org.omarchy.wallpaper-screensaver` and never runs `pkill ttfx`.
 
