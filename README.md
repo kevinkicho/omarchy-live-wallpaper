@@ -1,6 +1,6 @@
-# Live wallpaper
+# Omarchy live wallpaper
 
-![Live ttfx wallpaper on Omarchy](screenshots/live-wallpaper.png)
+![Omarchy live wallpaper](screenshots/live-wallpaper.png)
 
 Third-party Omarchy 4 plugin that keeps an always-on [ttfx](https://github.com/ChrisBuilds/terminaltexteffects) animation on the Hyprland background layer via `kitty +kitten panel`.
 
@@ -37,7 +37,7 @@ Needs [Omarchy](https://omarchy.org/) 4, `ttfx`, and `kitty` (only kitty can sit
 
 ```bash
 omarchy-pkg-add kitty
-omarchy plugin add https://github.com/kevinkicho/live-ttfx-wallpaper.git --enable
+omarchy plugin add https://github.com/kevinkicho/omarchy-live-wallpaper.git --enable
 ```
 
 Then merge [`menu-snippet.jsonc`](menu-snippet.jsonc) into `~/.config/omarchy/extensions/omarchy-menu.jsonc` and reopen Super+Space. You should see **Style → Live wallpaper**.
