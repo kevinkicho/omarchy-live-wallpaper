@@ -60,3 +60,24 @@ Menu actions call the plugin copies under `bin/`, so a future `omarchy plugin ad
 - `bin/omarchy-launch-wallpaper-screensaver` — one kitty background panel per monitor; `--stop` kills those panels by pid
 
 Kitty flags stay **after** `+kitten`. Class is always `org.omarchy.wallpaper-screensaver`. Logs: `~/.local/share/omarchy-wp/`.
+
+## Remove
+
+```bash
+omarchy-shell live-ttfx-wallpaper stop
+omarchy plugin disable live-ttfx-wallpaper
+omarchy plugin remove live-ttfx-wallpaper
+omarchy plugin enable omarchy.background
+```
+
+Then delete the `style.live-wallpaper*` rows from `~/.config/omarchy/extensions/omarchy-menu.jsonc` if you added them.
+
+Optional leftovers: `~/.config/omarchy/live-wallpaper-fps`, `~/.config/omarchy/live-wallpaper-effects`, `~/.local/share/omarchy-wp/`, and the login fallback scripts in `~/.local/bin/omarchy-*-wallpaper-screensaver` if you installed those by hand.
+
+## Dependencies
+
+- `ttfx` (already part of Omarchy)
+- `kitty` (background-layer panel; `omarchy-pkg-add kitty`)
+- Hyprland + Omarchy 4 Quickshell
+
+License: MIT.
